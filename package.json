@@ -1,8 +1,11 @@
 {
   "name": "scripts",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Personal CLI scripts for WeChat image and Douyin video downloads",
+  "bin": {
+    "wechat-dl": "./wechat-dl.mjs",
+    "douyin-dl": "./douyin-dl.mjs"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

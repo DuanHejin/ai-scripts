@@ -37,24 +37,32 @@ Features:
 
 ```bash
 npm install
+npm link
+```
+
+After `npm link`, you can run the commands directly from anywhere:
+
+```bash
+douyin-dl "<douyin-video-url>"
+wechat-dl "<wechat-article-url>"
 ```
 
 ## Usage
 
 ```bash
-node douyin-dl.mjs "<douyin-video-url>"
-node douyin-dl.mjs "<douyin-video-url>" "<filename>"
-node wechat-dl.mjs "<wechat-article-url>"
-node wechat-dl.mjs "<wechat-article-url>" "<keyword>"
+douyin-dl "<douyin-video-url>"
+douyin-dl "<douyin-video-url>" "<filename>"
+wechat-dl "<wechat-article-url>"
+wechat-dl "<wechat-article-url>" "<keyword>"
 ```
 
 Example:
 
 ```bash
-node douyin-dl.mjs "https://www.douyin.com/video/7583932066951204145"
-node douyin-dl.mjs "https://www.douyin.com/video/7583932066951204145" "altay-trip"
-node wechat-dl.mjs "https://mp.weixin.qq.com/s/xxxxxx"
-node wechat-dl.mjs "https://mp.weixin.qq.com/s/xxxxxx" "flowers"
+douyin-dl "https://www.douyin.com/video/7583932066951204145"
+douyin-dl "https://www.douyin.com/video/7583932066951204145" "altay-trip"
+wechat-dl "https://mp.weixin.qq.com/s/xxxxxx"
+wechat-dl "https://mp.weixin.qq.com/s/xxxxxx" "flowers"
 ```
 
 ## Output
