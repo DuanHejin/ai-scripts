@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * wechat-dl - 微信公众号图片下载脚本
- * 用法: wechat-dl <url> [关键词]
+ * 用法: wechat-dl <url> [关键词] [-o 目录] [-o-icloud [子目录]]
  *
  * 若不传关键词，自动从文章标题提取
  * 图片保存到 ~/Pictures/openclaw/wechat/
@@ -20,9 +20,15 @@ function parseArgs(argv) {
   const positional = [];
   let useICloud = false;
   let icloudSubdir = '';
+  let outputDir = '';
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
+    if (arg === '-o') {
+      outputDir = argv[i + 1] || '';
+      i += 1;
+      continue;
+    }
     if (arg === '-o-icloud') {
       useICloud = true;
       const nextArg = argv[i + 1];
@@ -38,7 +44,7 @@ function parseArgs(argv) {
   return {
     url: positional[0],
     customKeyword: positional[1],
-    saveDir: useICloud ? resolveICloudDir(icloudSubdir) : DEFAULT_SAVE_DIR
+    saveDir: outputDir || (useICloud ? resolveICloudDir(icloudSubdir) : DEFAULT_SAVE_DIR)
   };
 }
 
@@ -56,7 +62,7 @@ function resolveICloudDir(input) {
 const { url, customKeyword, saveDir } = parseArgs(process.argv.slice(2));
 
 if (!url) {
-  console.error('用法: wechat-dl <微信公众号URL> [关键词] [-o-icloud 子目录]');
+  console.error('用法: wechat-dl <微信公众号URL> [关键词] [-o 目录] [-o-icloud 子目录]');
   process.exit(1);
 }
 
