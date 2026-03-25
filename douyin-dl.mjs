@@ -16,6 +16,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 
 const DEFAULT_SAVE_DIR = join(homedir(), 'Pictures', 'openclaw', 'douyin');
 const ICLOUD_ROOT = join(homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
+const cookieHeader = process.env.DOUYIN_COOKIE || '';
 
 function resolveICloudDir(input) {
   const cleaned = (input || '')
@@ -144,12 +145,99 @@ function filenameFromUrl(videoUrl) {
   }
 }
 
+function parseCookies(rawCookie, pageUrl) {
+  if (!rawCookie.trim()) return [];
+
+  const { hostname } = new URL(pageUrl);
+  return rawCookie
+    .split(';')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => {
+      const index = item.indexOf('=');
+      if (index <= 0) return null;
+      return {
+        name: item.slice(0, index).trim(),
+        value: item.slice(index + 1).trim(),
+        domain: hostname,
+        path: '/'
+      };
+    })
+    .filter(Boolean);
+}
+
 function absoluteUrl(value, base) {
   try {
     return new URL(value, base).toString();
   } catch {
     return value;
   }
+}
+
+function findVideoId(data) {
+  let found = '';
+
+  function walk(node) {
+    if (found || !node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+
+    if (node.play_addr?.uri && typeof node.play_addr.uri === 'string') {
+      found = node.play_addr.uri;
+      return;
+    }
+
+    for (const value of Object.values(node)) walk(value);
+  }
+
+  walk(data);
+  return found;
+}
+
+function findVideoIdInHtml(html) {
+  const patterns = [
+    /video_id=([a-zA-Z0-9]+)/,
+    /"play_addr":\{"uri":"([a-zA-Z0-9]+)"/,
+    /\\u002Fplaywm\\u002F\?video_id=([a-zA-Z0-9]+)/
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+
+  return '';
+}
+
+async function resolveBestPlayUrl(request, videoId, referer, rawCookie) {
+  const ratios = ['1080p', 'origin', '720p', '540p'];
+  const candidates = [];
+
+  for (const ratio of ratios) {
+    const candidate = `https://www.douyin.com/aweme/v1/play/?video_id=${videoId}&ratio=${ratio}&line=0`;
+    const response = await request.get(candidate, {
+      failOnStatusCode: false,
+      maxRedirects: 0,
+      headers: {
+        referer,
+        ...(rawCookie ? { cookie: rawCookie } : {})
+      }
+    });
+
+    const location = response.headers()['location'] || '';
+    if (response.status() === 302 && location) {
+      let br = 0;
+      try {
+        br = Number(new URL(location).searchParams.get('br') || 0);
+      } catch {}
+      candidates.push({ url: location, ratio, br });
+    }
+  }
+
+  candidates.sort((a, b) => b.br - a.br);
+  return candidates[0] || null;
 }
 
 async function extractFromJson(page) {
@@ -182,19 +270,35 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     userAgent:
-      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    viewport: { width: 390, height: 844 }
   });
+
+  if (cookieHeader) {
+    await context.addCookies(parseCookies(cookieHeader, url));
+  }
+
   const page = await context.newPage();
 
-  const networkUrls = new Set();
+  const networkUrls = new Map();
   page.on('response', response => {
     const responseUrl = response.url();
-    if (responseUrl.includes('.mp4') || responseUrl.includes('/play/')) {
-      networkUrls.add(responseUrl);
+    if (
+      responseUrl.includes('douyinvod.com') ||
+      responseUrl.includes('.mp4') ||
+      responseUrl.includes('/play/')
+    ) {
+      const headers = response.headers();
+      const contentLength = Number(headers['content-length'] || 0);
+      const contentRange = headers['content-range'] || '';
+      networkUrls.set(responseUrl, scoreVideoUrl(responseUrl, contentLength, contentRange));
     }
   });
 
   console.log(`Opening: ${url}`);
+  if (cookieHeader) {
+    console.log('Using Douyin login cookie from DOUYIN_COOKIE');
+  }
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(5000);
 
@@ -204,9 +308,27 @@ async function main() {
     'douyin-video';
 
   const decodedJsonBlocks = await extractFromJson(page);
+  let videoId = '';
+  for (const block of decodedJsonBlocks) {
+    videoId = findVideoId(block);
+    if (videoId) break;
+  }
+  if (!videoId) {
+    videoId = findVideoIdInHtml(await page.content());
+  }
 
   let videoUrl = '';
+  let selectedRatio = '';
+  if (videoId) {
+    const best = await resolveBestPlayUrl(context.request, videoId, page.url(), cookieHeader);
+    if (best?.url) {
+      videoUrl = best.url;
+      selectedRatio = best.ratio;
+    }
+  }
+
   for (const block of decodedJsonBlocks) {
+    if (videoUrl) break;
     videoUrl = pickBestVideoUrl(block);
     if (videoUrl) break;
   }
@@ -217,7 +339,7 @@ async function main() {
   }
 
   if (!videoUrl && networkUrls.size > 0) {
-    videoUrl = [...networkUrls][0];
+    videoUrl = [...networkUrls.keys()][0];
   }
 
   if (!videoUrl) {
@@ -230,12 +352,13 @@ async function main() {
   const outputName = sanitizeName(customName || cleanTitle(title) || filenameFromUrl(videoUrl));
   const savePath = join(saveDir, `${timestamp()}_${outputName}.mp4`);
 
-  console.log(`Video URL found: ${videoUrl}`);
+  console.log(`Stream: ${selectedRatio || 'page-default'}`);
   console.log(`Saving to: ${savePath}`);
 
   const response = await context.request.get(videoUrl, {
     headers: {
-      referer: page.url()
+      referer: page.url(),
+      ...(cookieHeader ? { cookie: cookieHeader } : {})
     }
   });
 

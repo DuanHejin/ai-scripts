@@ -25,9 +25,11 @@ Features:
 
 - Opens the video page in a browser context
 - Extracts the playable video URL from page data or network traffic
+- Probes common play endpoints and picks the highest stable quality exposed to the current session
 - Downloads the video to `~/Pictures/openclaw/douyin/`
 - Supports an optional custom output name
 - Cleans page titles to avoid hashtags and overly long filenames
+- Supports logged-in downloads through the `DOUYIN_COOKIE` environment variable
 
 ### `wechat-dl.mjs`
 
@@ -87,6 +89,13 @@ For higher Bilibili qualities that require login:
 ```bash
 export BILIBILI_COOKIE='SESSDATA=...; bili_jct=...; DedeUserID=...'
 bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx"
+```
+
+For higher Douyin qualities that require login:
+
+```bash
+export DOUYIN_COOKIE='sessionid=...; passport_csrf_token=...'
+douyin-dl "https://www.douyin.com/video/7583932066951204145"
 ```
 
 How to get the Bilibili cookie safely:
@@ -176,5 +185,6 @@ Images are saved to:
 - The script uses `playwright-core`
 - Bilibili downloads use the highest quality exposed on the page, which may still depend on login state, membership access, and source availability
 - To access 1080p or higher when Bilibili restricts anonymous playback, provide your logged-in browser cookie through `BILIBILI_COOKIE`
+- Douyin downloads probe stable play endpoints and typically reach up to 1080p when that quality is exposed; exact availability may still depend on login state and per-video restrictions
 - It currently targets WeChat article pages only
 - The project does not include automated tests yet
