@@ -4,7 +4,8 @@
   "description": "Personal CLI scripts for WeChat image and Douyin video downloads",
   "bin": {
     "wechat-dl": "./wechat-dl.mjs",
-    "douyin-dl": "./douyin-dl.mjs"
+    "douyin-dl": "./douyin-dl.mjs",
+    "bilibili-dl": "./bilibili-dl.mjs"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

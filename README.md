@@ -4,6 +4,19 @@ Small personal automation scripts.
 
 ## Included
 
+### `bilibili-dl.mjs`
+
+Download a public Bilibili video from a video page URL.
+
+Features:
+
+- Opens the video page and extracts play info from page state
+- Downloads the highest-bitrate stream exposed to the current page session
+- Saves to `~/Pictures/openclaw/bilibili/`
+- If `ffmpeg` is installed, merges separate video and audio streams automatically
+- Cleans the page title to avoid the `_哔哩哔哩_bilibili` suffix in filenames
+- Supports logged-in downloads through the `BILIBILI_COOKIE` environment variable
+
 ### `douyin-dl.mjs`
 
 Download a public Douyin video from a video page URL.
@@ -32,6 +45,7 @@ Features:
 
 - Node.js
 - `npm install`
+- `ffmpeg` if you want Bilibili video and audio streams merged into a single MP4
 
 ## Install
 
@@ -40,9 +54,16 @@ npm install
 npm link
 ```
 
+For Bilibili merged MP4 output:
+
+```bash
+brew install ffmpeg
+```
+
 After `npm link`, you can run the commands directly from anywhere:
 
 ```bash
+bilibili-dl "<bilibili-video-url>"
 douyin-dl "<douyin-video-url>"
 wechat-dl "<wechat-article-url>"
 ```
@@ -50,15 +71,45 @@ wechat-dl "<wechat-article-url>"
 ## Usage
 
 ```bash
+bilibili-dl "<bilibili-video-url>"
+bilibili-dl "<bilibili-video-url>" "<filename>"
 douyin-dl "<douyin-video-url>"
 douyin-dl "<douyin-video-url>" "<filename>"
 wechat-dl "<wechat-article-url>"
 wechat-dl "<wechat-article-url>" "<keyword>"
 ```
 
+For higher Bilibili qualities that require login:
+
+```bash
+export BILIBILI_COOKIE='SESSDATA=...; bili_jct=...; DedeUserID=...'
+bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx"
+```
+
+How to get the Bilibili cookie safely:
+
+1. Open a Bilibili video page in Chrome or Edge while logged in.
+2. Open DevTools with `F12` or `Cmd+Option+I`.
+3. Go to `Network` and refresh the page.
+4. Click the main document request for `www.bilibili.com/video/...`.
+5. In `Request Headers`, copy the full `cookie` header value.
+6. Use it only in your local shell session:
+
+```bash
+export BILIBILI_COOKIE='SESSDATA=...; bili_jct=...; DedeUserID=...; DedeUserID__ckMd5=...'
+```
+
+Or run a single command without exporting permanently:
+
+```bash
+BILIBILI_COOKIE='SESSDATA=...; bili_jct=...; DedeUserID=...' bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx"
+```
+
 Example:
 
 ```bash
+bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx"
+bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx" "my-video"
 douyin-dl "https://www.douyin.com/video/7583932066951204145"
 douyin-dl "https://www.douyin.com/video/7583932066951204145" "altay-trip"
 wechat-dl "https://mp.weixin.qq.com/s/xxxxxx"
@@ -66,6 +117,12 @@ wechat-dl "https://mp.weixin.qq.com/s/xxxxxx" "flowers"
 ```
 
 ## Output
+
+Bilibili videos are saved to:
+
+```bash
+~/Pictures/openclaw/bilibili/
+```
 
 Douyin videos are saved to:
 
@@ -82,5 +139,7 @@ Images are saved to:
 ## Notes
 
 - The script uses `playwright-core`
+- Bilibili downloads use the highest quality exposed on the page, which may still depend on login state, membership access, and source availability
+- To access 1080p or higher when Bilibili restricts anonymous playback, provide your logged-in browser cookie through `BILIBILI_COOKIE`
 - It currently targets WeChat article pages only
 - The project does not include automated tests yet
