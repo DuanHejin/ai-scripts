@@ -73,10 +73,13 @@ wechat-dl "<wechat-article-url>"
 ```bash
 bilibili-dl "<bilibili-video-url>"
 bilibili-dl "<bilibili-video-url>" "<filename>"
+bilibili-dl "<bilibili-video-url>" -o-icloud "icloud/bilibili"
 douyin-dl "<douyin-video-url>"
 douyin-dl "<douyin-video-url>" "<filename>"
+douyin-dl "<douyin-video-url>" -o-icloud "icloud/douyin"
 wechat-dl "<wechat-article-url>"
 wechat-dl "<wechat-article-url>" "<keyword>"
+wechat-dl "<wechat-article-url>" "flowers" -o-icloud "icloud/wechat"
 ```
 
 For higher Bilibili qualities that require login:
@@ -103,6 +106,38 @@ Or run a single command without exporting permanently:
 
 ```bash
 BILIBILI_COOKIE='SESSDATA=...; bili_jct=...; DedeUserID=...' bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx"
+```
+
+To save directly into iCloud Drive, pass `-o-icloud <subdir>`. The value is resolved under:
+
+```bash
+~/Library/Mobile Documents/com~apple~CloudDocs/
+```
+
+Examples:
+
+```bash
+wechat-dl "https://mp.weixin.qq.com/s/xxxxxx" -o-icloud
+wechat-dl "https://mp.weixin.qq.com/s/xxxxxx" -o-icloud "icloud/wechat"
+douyin-dl "https://www.douyin.com/video/7583932066951204145" -o-icloud
+douyin-dl "https://www.douyin.com/video/7583932066951204145" -o-icloud "icloud/douyin"
+bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx" -o-icloud
+bilibili-dl "https://www.bilibili.com/video/BVxxxxxxxxxx" -o-icloud "icloud/bilibili"
+```
+
+The `icloud/` prefix in the subdirectory is optional. These two are equivalent:
+
+```bash
+-o-icloud "icloud/wechat"
+-o-icloud "wechat"
+```
+
+If you pass `-o-icloud` without a subdirectory, each script uses its own default iCloud folder:
+
+```bash
+wechat-dl  -> ~/Library/Mobile Documents/com~apple~CloudDocs/wechat
+douyin-dl  -> ~/Library/Mobile Documents/com~apple~CloudDocs/douyin
+bilibili-dl -> ~/Library/Mobile Documents/com~apple~CloudDocs/bilibili
 ```
 
 Example:

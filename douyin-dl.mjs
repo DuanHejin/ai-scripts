@@ -14,12 +14,50 @@ import { homedir } from 'os';
 import { basename, join } from 'path';
 import { mkdirSync, writeFileSync } from 'fs';
 
-const SAVE_DIR = join(homedir(), 'Pictures', 'openclaw', 'douyin');
-const url = process.argv[2];
-const customName = process.argv[3];
+const DEFAULT_SAVE_DIR = join(homedir(), 'Pictures', 'openclaw', 'douyin');
+const ICLOUD_ROOT = join(homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
+
+function resolveICloudDir(input) {
+  const cleaned = (input || '')
+    .trim()
+    .replace(/^icloud\/+/i, '')
+    .replace(/^\/+/, '');
+  if (!cleaned) {
+    return join(ICLOUD_ROOT, 'douyin');
+  }
+  return join(ICLOUD_ROOT, cleaned);
+}
+
+function parseArgs(argv) {
+  const positional = [];
+  let useICloud = false;
+  let icloudSubdir = '';
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '-o-icloud') {
+      useICloud = true;
+      const nextArg = argv[i + 1];
+      if (nextArg && !nextArg.startsWith('-')) {
+        icloudSubdir = nextArg;
+        i += 1;
+      }
+      continue;
+    }
+    positional.push(arg);
+  }
+
+  return {
+    url: positional[0],
+    customName: positional[1],
+    saveDir: useICloud ? resolveICloudDir(icloudSubdir) : DEFAULT_SAVE_DIR
+  };
+}
+
+const { url, customName, saveDir } = parseArgs(process.argv.slice(2));
 
 if (!url) {
-  console.error('Usage: node douyin-dl.mjs <douyin-video-url> [filename]');
+  console.error('Usage: douyin-dl <douyin-video-url> [filename] [-o-icloud subdir]');
   process.exit(1);
 }
 
@@ -139,7 +177,7 @@ async function extractFromJson(page) {
 }
 
 async function main() {
-  mkdirSync(SAVE_DIR, { recursive: true });
+  mkdirSync(saveDir, { recursive: true });
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -190,7 +228,7 @@ async function main() {
   videoUrl = absoluteUrl(videoUrl, page.url());
 
   const outputName = sanitizeName(customName || cleanTitle(title) || filenameFromUrl(videoUrl));
-  const savePath = join(SAVE_DIR, `${timestamp()}_${outputName}.mp4`);
+  const savePath = join(saveDir, `${timestamp()}_${outputName}.mp4`);
 
   console.log(`Video URL found: ${videoUrl}`);
   console.log(`Saving to: ${savePath}`);

@@ -13,12 +13,50 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
-const SAVE_DIR = join(homedir(), 'Pictures', 'openclaw', 'wechat');
-const url = process.argv[2];
-const customKeyword = process.argv[3];
+const DEFAULT_SAVE_DIR = join(homedir(), 'Pictures', 'openclaw', 'wechat');
+const ICLOUD_ROOT = join(homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
+
+function parseArgs(argv) {
+  const positional = [];
+  let useICloud = false;
+  let icloudSubdir = '';
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '-o-icloud') {
+      useICloud = true;
+      const nextArg = argv[i + 1];
+      if (nextArg && !nextArg.startsWith('-')) {
+        icloudSubdir = nextArg;
+        i += 1;
+      }
+      continue;
+    }
+    positional.push(arg);
+  }
+
+  return {
+    url: positional[0],
+    customKeyword: positional[1],
+    saveDir: useICloud ? resolveICloudDir(icloudSubdir) : DEFAULT_SAVE_DIR
+  };
+}
+
+function resolveICloudDir(input) {
+  const cleaned = (input || '')
+    .trim()
+    .replace(/^icloud\/+/i, '')
+    .replace(/^\/+/, '');
+  if (!cleaned) {
+    return join(ICLOUD_ROOT, 'wechat');
+  }
+  return join(ICLOUD_ROOT, cleaned);
+}
+
+const { url, customKeyword, saveDir } = parseArgs(process.argv.slice(2));
 
 if (!url) {
-  console.error('用法: wechat-dl <微信公众号URL> [关键词]');
+  console.error('用法: wechat-dl <微信公众号URL> [关键词] [-o-icloud 子目录]');
   process.exit(1);
 }
 
@@ -38,7 +76,7 @@ function extractKeyword(title) {
 }
 
 async function main() {
-  mkdirSync(SAVE_DIR, { recursive: true });
+  mkdirSync(saveDir, { recursive: true });
 
   console.log(`🔍 正在打开页面: ${url}`);
   const browser = await chromium.launch({ headless: true });
@@ -113,7 +151,7 @@ async function main() {
   for (let i = 0; i < imgUrls.length; i++) {
     const idx = String(i + 1).padStart(2, '0');
     const filename = `${ts}_${keyword}_${idx}.jpg`;
-    const savePath = join(SAVE_DIR, filename);
+    const savePath = join(saveDir, filename);
     process.stdout.write(`  下载 [${idx}/${imgUrls.length}] ${filename} ... `);
     try {
       // 用 playwright 内置 fetch 下载，自动带 cookie
@@ -127,7 +165,7 @@ async function main() {
   }
 
   await browser.close();
-  console.log(`\n📁 保存目录: ${SAVE_DIR}`);
+  console.log(`\n📁 保存目录: ${saveDir}`);
 }
 
 main().catch(e => { console.error('❌ 出错:', e.message); process.exit(1); });

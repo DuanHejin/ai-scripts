@@ -15,13 +15,51 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
 
-const SAVE_DIR = join(homedir(), 'Pictures', 'openclaw', 'bilibili');
-const url = process.argv[2];
-const customName = process.argv[3];
+const DEFAULT_SAVE_DIR = join(homedir(), 'Pictures', 'openclaw', 'bilibili');
+const ICLOUD_ROOT = join(homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
 const cookieHeader = process.env.BILIBILI_COOKIE || '';
 
+function resolveICloudDir(input) {
+  const cleaned = (input || '')
+    .trim()
+    .replace(/^icloud\/+/i, '')
+    .replace(/^\/+/, '');
+  if (!cleaned) {
+    return join(ICLOUD_ROOT, 'bilibili');
+  }
+  return join(ICLOUD_ROOT, cleaned);
+}
+
+function parseArgs(argv) {
+  const positional = [];
+  let useICloud = false;
+  let icloudSubdir = '';
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '-o-icloud') {
+      useICloud = true;
+      const nextArg = argv[i + 1];
+      if (nextArg && !nextArg.startsWith('-')) {
+        icloudSubdir = nextArg;
+        i += 1;
+      }
+      continue;
+    }
+    positional.push(arg);
+  }
+
+  return {
+    url: positional[0],
+    customName: positional[1],
+    saveDir: useICloud ? resolveICloudDir(icloudSubdir) : DEFAULT_SAVE_DIR
+  };
+}
+
+const { url, customName, saveDir } = parseArgs(process.argv.slice(2));
+
 if (!url) {
-  console.error('Usage: bilibili-dl <bilibili-video-url> [filename]');
+  console.error('Usage: bilibili-dl <bilibili-video-url> [filename] [-o-icloud subdir]');
   process.exit(1);
 }
 
@@ -139,7 +177,7 @@ async function downloadBuffer(request, targetUrl, referer, rawCookie) {
 }
 
 async function main() {
-  mkdirSync(SAVE_DIR, { recursive: true });
+  mkdirSync(saveDir, { recursive: true });
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -189,7 +227,7 @@ async function main() {
   }
 
   const outputBase = `${timestamp()}_${sanitizeName(customName || cleanTitle(pageData.title))}`;
-  const finalPath = join(SAVE_DIR, `${outputBase}.mp4`);
+  const finalPath = join(saveDir, `${outputBase}.mp4`);
 
   console.log(`Title: ${pageData.title}`);
   console.log(
@@ -208,8 +246,8 @@ async function main() {
   }
 
   const audioBuffer = await downloadBuffer(context.request, audioUrl, page.url(), cookieHeader);
-  const tempVideoPath = join(SAVE_DIR, `${outputBase}.video.m4s`);
-  const tempAudioPath = join(SAVE_DIR, `${outputBase}.audio.m4s`);
+  const tempVideoPath = join(saveDir, `${outputBase}.video.m4s`);
+  const tempAudioPath = join(saveDir, `${outputBase}.audio.m4s`);
   writeFileSync(tempVideoPath, videoBuffer);
   writeFileSync(tempAudioPath, audioBuffer);
 
